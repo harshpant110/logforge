@@ -1,12 +1,13 @@
 from app.parsers.json_parser import parse_json_log
 from app.parsers.syslog_parser import parse_syslog
 from app.parsers.apache_parser import parse_apache
-
+from app.parsers.cef_parser import parse_cef
 
 PARSERS = {
     "syslog": parse_syslog,
     "json": parse_json_log,
     "apache": parse_apache,
+    "cef": parse_cef,
 }
 
 

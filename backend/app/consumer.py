@@ -3,7 +3,7 @@ import json
 from kafka import KafkaConsumer
 
 from app.processor import process_log
-
+from app.producer import send_to_dlq
 
 KAFKA_BROKER = "localhost:9092"
 KAFKA_TOPIC = "raw-logs"
@@ -15,7 +15,7 @@ consumer = KafkaConsumer(
     bootstrap_servers=KAFKA_BROKER,
     group_id=CONSUMER_GROUP,
     auto_offset_reset="earliest",
-    enable_auto_commit=True,
+    enable_auto_commit=False,
 )
 
 
@@ -41,8 +41,31 @@ for message in consumer:
         print("\nNormalized event:")
         print(normalized_event.model_dump_json(indent=2))
 
+        consumer.commit()
+        print("Message committed successfully")
+
     except json.JSONDecodeError as error:
         print(f"\nInvalid JSON message: {error}")
 
     except Exception as error:
         print(f"\nFailed to process log: {error}")
+        try:
+            kafka_metadata = {
+                "topic": message.topic,
+                "partition": message.partition,
+                "offset": message.offset,
+            }
+            send_to_dlq(
+                    raw_message,
+                    str(error),
+                    kafka_metadata,
+                )
+
+            consumer.commit()
+
+            print("Failed message sent to DLQ and committed")
+
+        except Exception as dlq_error:
+            print(f"Failed to send message to DLQ: {dlq_error}")
+
+        continue

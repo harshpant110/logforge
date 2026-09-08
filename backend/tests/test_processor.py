@@ -27,10 +27,10 @@ def test_process_syslog():
     assert result.app_id == 10
 
     # OCSF classification
-    assert result.event.class_uid == 2
+    assert result.event.class_uid == 3002
     assert result.event.category_uid == 3
     assert result.event.activity_id == 1
-    assert result.event.type_uid == 201
+    assert result.event.type_uid == 300201
 
     assert result.event.activity_name == "Logon"
 
@@ -39,7 +39,7 @@ def test_process_syslog():
     assert result.event.status == "Failure"
 
     # Severity
-    assert result.event.severity_id == 3
+    assert result.event.severity_id == 4
     assert result.event.severity == "High"
 
     # OCSF metadata
@@ -100,3 +100,48 @@ def test_invalid_syslog():
 
     with pytest.raises(ValueError, match="Unsupported log format"):
         process_log(message)
+
+def test_send_to_dlq(monkeypatch):
+    from app.producer import send_to_dlq
+
+    sent_messages = []
+
+    class FakeFuture:
+        def get(self, timeout=None):
+            return None
+
+    def fake_send(topic, value):
+        sent_messages.append((topic, value))
+        return FakeFuture()
+
+    monkeypatch.setattr(
+        "app.producer.producer.send",
+        fake_send,
+    )
+
+    message = {
+        "event_id": "failed-001",
+        "user_id": 1,
+        "app_id": 10,
+        "raw_log": "invalid log",
+    }
+
+    kafka_metadata = {
+    "topic": "raw-logs",
+    "partition": 0,
+    "offset": 123,
+}
+
+    send_to_dlq(
+        message,
+        "Unsupported log format",
+        kafka_metadata,
+    )
+    assert len(sent_messages) == 1
+
+    topic, value = sent_messages[0]
+
+    assert topic == "logforge-dlq"
+    assert value["original_message"] == message
+    assert value["error"] == "Unsupported log format"
+    assert value["kafka"] == kafka_metadata

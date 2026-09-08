@@ -17,7 +17,26 @@ class OCSFProcess(BaseModel):
     name: Optional[str] = None
     pid: Optional[int] = None
 
+class OCSFUser(BaseModel):
+    name: Optional[str] = None
 
+
+class OCSFEndpoint(BaseModel):
+    ip: Optional[str] = None
+    hostname: Optional[str] = None
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+
+
+class OCSFHTTP(BaseModel):
+    method: Optional[str] = None
+    path: Optional[str] = None
+    protocol: Optional[str] = None
+    status_code: Optional[int] = None
+    response_size: Optional[int] = None
+    referrer: Optional[str] = None
+    user_agent: Optional[str] = None
+    source_ip: Optional[str] = None
 class OCSFEvent(BaseModel):
     # OCSF classification
     activity_id: int
@@ -38,6 +57,8 @@ class OCSFEvent(BaseModel):
     
     status_id: int
     status: Optional[str] = None
+    disposition_id: Optional[int] = None
+    disposition: Optional[str] = None
 
     # Occurrence
     time: int
@@ -50,6 +71,12 @@ class OCSFEvent(BaseModel):
     device: Optional[OCSFDevice] = None
     process: Optional[OCSFProcess] = None
 
+    http: Optional[OCSFHTTP] = None
+
+    user: Optional[OCSFUser] = None
+    src_endpoint: Optional[OCSFEndpoint] = None
+    dst_endpoint: Optional[OCSFEndpoint] = None
+    
     raw_data: Optional[str] = None
     unmapped: Optional[dict[str, Any]] = None
 

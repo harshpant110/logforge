@@ -26,13 +26,13 @@ def test_syslog_to_ocsf_pipeline():
         "Identity & Access Management"
     )
 
-    assert result.event.class_uid == 2
+    assert result.event.class_uid == 3002
     assert result.event.class_name == "Authentication"
 
     assert result.event.activity_id == 1
     assert result.event.activity_name == "Logon"
 
-    assert result.event.type_uid == 201
+    assert result.event.type_uid == 300201
     assert result.event.type_name == "Authentication: Logon"
 
     # Status
@@ -40,7 +40,7 @@ def test_syslog_to_ocsf_pipeline():
     assert result.event.status == "Failure"
 
     # Severity
-    assert result.event.severity_id == 3
+    assert result.event.severity_id == 4
     assert result.event.severity == "High"
 
     # Parsed information

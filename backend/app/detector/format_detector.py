@@ -19,12 +19,15 @@ def detect_format(raw_log: str) -> str:
         r"^[A-Z][a-z]{2}\s+\d{1,2}\s+"
         r"\d{2}:\d{2}:\d{2}\s+"
     )
-
+    CEF_PATTERN = re.compile(r"^CEF:\d+\|")
     if re.match(APACHE_PATTERN, raw_log):
         return "apache"
 
     if re.match(syslog_pattern, raw_log):
         return "syslog"
+
+    if re.match(CEF_PATTERN, raw_log):
+        return "cef"
 
     try:
         data = json.loads(raw_log)

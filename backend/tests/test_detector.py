@@ -30,3 +30,11 @@ def test_detect_apache():
     )
 
     assert detect_format(raw_log) == "apache"
+
+def test_detect_cef():
+    raw_log = (
+        "CEF:0|SecurityVendor|Firewall|1.0|100|"
+        "Login Failed|8|src=192.168.1.10"
+    )
+
+    assert detect_format(raw_log) == "cef"

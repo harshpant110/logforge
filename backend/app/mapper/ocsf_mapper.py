@@ -4,11 +4,13 @@ from app.mapper.classifier import classify_event
 from app.models.event import (
     NormalizedEvent,
     OCSFDevice,
+    OCSFEndpoint,
     OCSFEvent,
+    OCSFHTTP,
     OCSFMetadata,
     OCSFProcess,
+    OCSFUser,
 )
-
 
 def convert_timestamp(
     timestamp: str | None,
@@ -51,7 +53,18 @@ def convert_timestamp(
 
     except ValueError:
         pass
-
+    try:
+        dt = datetime.strptime(
+            timestamp,
+            "%d/%b/%Y:%H:%M:%S %z",
+        )
+    
+        return int(
+            dt.astimezone(timezone.utc).timestamp() * 1000
+        )
+    
+    except ValueError:
+        pass
     # Try traditional syslog format
     try:
         year = syslog_year or datetime.now(timezone.utc).year
@@ -74,7 +87,7 @@ def convert_timestamp(
             f"Invalid timestamp format: {timestamp}"
         ) from error
 
-
+   
 def map_to_ocsf(
     event_id: str,
     user_id: int,
@@ -85,16 +98,61 @@ def map_to_ocsf(
 
     # Base Event
     
-    classification = classify_event(
-        parsed_log.get("message")
-    )
+    classification = classify_event(parsed_log)
 
     class_uid = classification["class_uid"]
     category_uid = classification["category_uid"]
     activity_id = classification["activity_id"]
 
     type_uid = class_uid * 100 + activity_id
+    http_data = None
 
+    if log_format == "apache":
+        http_data = OCSFHTTP(
+            method=parsed_log.get("method"),
+            path=parsed_log.get("path"),
+            protocol=parsed_log.get("protocol"),
+            status_code=parsed_log.get("status_code"),
+            response_size=parsed_log.get("response_size"),
+            referrer=parsed_log.get("referrer"),
+            user_agent=parsed_log.get("user_agent"),
+            source_ip=parsed_log.get("source_ip"),
+        )
+    user_data = None
+    src_endpoint_data = None
+
+    if parsed_log.get("username"):
+        user_data = OCSFUser(
+            name=parsed_log["username"]
+        )
+
+    if parsed_log.get("source_ip"):
+        src_endpoint_data = OCSFEndpoint(
+            ip=parsed_log["source_ip"],
+            port=parsed_log.get("source_port"),
+            protocol=parsed_log.get("protocol"),
+        )
+    dst_endpoint_data = None
+
+    if parsed_log.get("destination_ip"):
+        dst_endpoint_data = OCSFEndpoint(
+            ip=parsed_log["destination_ip"],
+            port=parsed_log.get("destination_port"),
+            protocol=parsed_log.get("protocol"),
+
+        )
+    disposition_id = None
+    disposition = None
+
+    if parsed_log.get("action"):
+        action = parsed_log["action"].lower()
+
+        if action in {"blocked", "denied", "deny"}:
+            disposition_id = 2
+            disposition = "Blocked"
+        elif action in {"allowed", "allow", "permitted", "permit"}:
+            disposition_id = 1
+            disposition = "Allowed"
     ocsf_event = OCSFEvent(
         activity_id=activity_id,
         activity_name=classification["activity_name"],
@@ -133,8 +191,15 @@ def map_to_ocsf(
             pid=parsed_log.get("process_id"),
         ),
 
+        http=http_data,
+        user=user_data,
+        src_endpoint=src_endpoint_data,
+        dst_endpoint=dst_endpoint_data,
+        disposition_id=disposition_id,
+        disposition=disposition,
         unmapped={
             "source_format": log_format,
+            "cef_severity": parsed_log.get("cef_severity"),
         },
     )
 

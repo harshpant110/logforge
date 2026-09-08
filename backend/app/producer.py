@@ -6,13 +6,24 @@ from kafka import KafkaProducer
 
 KAFKA_BROKER = "localhost:9092"
 KAFKA_TOPIC = "raw-logs"
-
+DLQ_TOPIC = "logforge-dlq"
 
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_BROKER,
     value_serializer=lambda value: json.dumps(value).encode("utf-8"),
 )
 
+def send_to_dlq(message: dict, error: str,kafka_metadata: dict | None = None,):
+    dlq_message = {
+        "original_message": message,
+        "error": error,
+        "kafka": kafka_metadata,
+    }
+    producer.send(DLQ_TOPIC, value=dlq_message)
+    producer.flush()
+
+    print("Message sent to DLQ:")
+    print(json.dumps(dlq_message, indent=2))
 
 def send_log(user_id: int, app_id: int, raw_log: str):
 
